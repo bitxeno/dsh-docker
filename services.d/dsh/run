@@ -1,0 +1,21 @@
+#!/command/with-contenv bash
+set -Eeuo pipefail
+
+DSH_HOME="${DSH_HOME:-/data/dsh}"
+mkdir -p "$DSH_HOME" /workspace
+
+# s6 v3 runs services from a temporary directory, so pin the working directory.
+cd /workspace
+
+# DSH refuses wildcard binds; pass one concrete container IPv4 address.
+ip="$(node -e '
+  const os = require("node:os")
+  for (const [name, addrs] of Object.entries(os.networkInterfaces())) {
+    if (name === "lo") continue
+    const a = (addrs || []).find(i => !i.internal && i.family === "IPv4")
+    if (a) { process.stdout.write(a.address); process.exit(0) }
+  }
+  process.exit(1)
+')"
+
+exec dsh web --no-open --host "$ip" --port 3080

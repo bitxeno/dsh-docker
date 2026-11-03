@@ -1,0 +1,133 @@
+name: Publish Docker Image To GHCR
+
+# Builds the multi-arch image and pushes it to GitHub Container Registry.
+# Derived from ../aiclaw-docker/.github/workflows/publish.yml, with these fixes:
+#   - Docker actions bumped to current majors (reference still pins v3/v4/v5)
+#   - tag rules that cannot emit an invalid ":latest" from names like "vlatest"
+#   - GHCR image name is lowercased (GHCR rejects uppercase owner/repo)
+#   - DSH_VERSION exposed as a dispatch input, so a tagged release pins exactly
+#     the DSH version baked into the image
+#   - registry cache, so repeat builds reuse the s6-overlay / DSH / lib layers
+
+on:
+  push:
+    branches:
+      - main
+    tags:
+      - 'v*.*.*'
+  workflow_dispatch:
+    inputs:
+      dsh_version:
+        description: 'DSH version to bake into the image (for example 0.2.1-rc.2)'
+        required: false
+        default: '0.2.1-rc.2'
+        type: string
+      push_latest:
+        description: 'Also tag the manual build as :latest'
+        required: false
+        default: false
+        type: boolean
+
+# Do not let two publishes race on the same image tags.
+concurrency:
+  group: publish-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  packages: write
+
+env:
+  REGISTRY: ghcr.io
+  DEFAULT_DSH_VERSION: '0.2.1-rc.2'
+
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v7
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v4
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v4
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      # Passed via env (not interpolated into the script) to avoid shell injection
+      # from a user-supplied dispatch input.
+      - name: Resolve DSH version
+        id: dshver
+        env:
+          INPUT_VERSION: ${{ inputs.dsh_version }}
+          FALLBACK_VERSION: ${{ env.DEFAULT_DSH_VERSION }}
+        run: |
+          set -euo pipefail
+          version="${INPUT_VERSION:-$FALLBACK_VERSION}"
+          if ! printf '%s' "$version" | grep -Eq '^[0-9A-Za-z][0-9A-Za-z._-]*$'; then
+            echo "::error::Invalid DSH version: $version"
+            exit 1
+          fi
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "Using DSH_VERSION=$version"
+
+      - name: Compute image name
+        id: image
+        run: echo "name=${GITHUB_REPOSITORY,,}" >> "$GITHUB_OUTPUT"
+
+      # Compose now references the published GHCR image, not a local build, so
+      # validate the file as plain YAML/Compose syntax rather than expecting a
+      # buildable `build:` section.
+      - name: Validate Compose configuration
+        run: docker compose config --quiet
+
+      # Explicit rules instead of the reference's ref-based `latest`, because a
+      # tag ref named v0.2.1 would make `latest` come out as "vlatest".
+      - name: Extract metadata
+        id: meta
+        uses: docker/metadata-action@v6
+        with:
+          images: ${{ env.REGISTRY }}/${{ steps.image.outputs.name }}
+          tags: |
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=ref,event=branch
+            type=sha,format=short
+            type=raw,value=latest,enable=${{ github.ref == format('refs/heads/{0}', github.event.repository.default_branch) || startsWith(github.ref, 'refs/tags/v') || inputs.push_latest == true }}
+          labels: |
+            org.opencontainers.image.title=dsh-docker
+            org.opencontainers.image.description=DeepSeek Harness web runtime supervised by s6-overlay
+            org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
+
+      - name: Build and push Docker image to GHCR
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          platforms: linux/amd64,linux/arm64
+          build-args: |
+            DSH_VERSION=${{ steps.dshver.outputs.version }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Write job summary
+        run: |
+          {
+            echo "### dsh-docker published"
+            echo ""
+            echo "- DSH version: \`${{ steps.dshver.outputs.version }}\`"
+            echo "- Platforms: \`linux/amd64, linux/arm64\`"
+            echo ""
+            echo "\`\`\`"
+            echo "${{ steps.meta.outputs.tags }}"
+            echo "\`\`\`"
+          } >> "$GITHUB_STEP_SUMMARY"

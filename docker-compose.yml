@@ -1,0 +1,18 @@
+name: dsh-docker
+
+services:
+  dsh:
+    image: ghcr.io/bitxeno/dsh-docker:latest
+    restart: unless-stopped
+    ports:
+      - "${DSH_PORT:-3080}:3080"
+    environment:
+      TZ: ${TZ:-Asia/Shanghai}
+      DEEPSEEK_API_KEY: ${DEEPSEEK_API_KEY:-}
+    volumes:
+      - dsh_data:/data
+      - ./workspace:/workspace
+    working_dir: /workspace
+
+volumes:
+  dsh_data:
