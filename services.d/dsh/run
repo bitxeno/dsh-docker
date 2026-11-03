@@ -7,21 +7,28 @@ mkdir -p "$DSH_HOME" /workspace
 # s6 v3 runs services from a temporary directory, so pin the working directory.
 cd /workspace
 
-# DSH refuses wildcard binds; pass one concrete container IPv4 address.
-ip="$(node -e '
-  const os = require("node:os")
-  for (const [name, addrs] of Object.entries(os.networkInterfaces())) {
-    if (name === "lo") continue
-    const a = (addrs || []).find(i => !i.internal && i.family === "IPv4")
-    if (a) { process.stdout.write(a.address); process.exit(0) }
-  }
-  process.exit(1)
-')"
+# DSH refuses wildcard binds, so it needs one concrete address.
+# Default to loopback: with network_mode: host this makes the UI reachable at
+# localhost:3080, which is what a same-host reverse proxy (Caddy/nginx) wants.
+# Override DSH_BIND_IP when using bridge networking, where the port mapping
+# DNATs to the container's own interface and loopback would never receive it.
+bind_ip="${DSH_BIND_IP:-127.0.0.1}"
+if [[ -z "$bind_ip" ]]; then
+  bind_ip="$(node -e '
+    const os = require("node:os")
+    for (const [name, addrs] of Object.entries(os.networkInterfaces())) {
+      if (name === "lo") continue
+      const a = (addrs || []).find(i => !i.internal && i.family === "IPv4")
+      if (a) { process.stdout.write(a.address); process.exit(0) }
+    }
+    process.exit(1)
+  ')"
+fi
 
 # DSH only accepts loopback, its own bind IP, or an explicitly trusted authority.
-# Reaching the UI by the host's LAN IP or a domain therefore needs
-# --trusted-host for each of them, otherwise every /api call returns 403.
-args=(web --no-open --host "$ip" --port 3080)
+# A reverse proxy forwarding ai.lan/other hosts therefore needs --trusted-host
+# for each of them, otherwise every /api call returns 403.
+args=(web --no-open --host "$bind_ip" --port "${DSH_PORT:-3080}")
 if [[ -n "${DSH_TRUSTED_HOSTS:-}" ]]; then
   IFS=',' read -r -a hosts <<< "$DSH_TRUSTED_HOSTS"
   for h in "${hosts[@]}"; do
@@ -30,4 +37,5 @@ if [[ -n "${DSH_TRUSTED_HOSTS:-}" ]]; then
   done
 fi
 
+echo "[dsh-docker] listening on ${bind_ip}:${DSH_PORT:-3080}"
 exec dsh "${args[@]}"

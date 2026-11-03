@@ -5,15 +5,20 @@ services:
     image: ghcr.io/bitxeno/dsh-docker:latest
     container_name: dsh-docker
     restart: unless-stopped
-    ports:
-      - "${DSH_PORT:-3080}:3080"
+    # Host networking so DSH can bind 127.0.0.1 and a same-host reverse proxy
+    # (Caddy/nginx) can reach it at localhost:${DSH_PORT}. A bridge port mapping
+    # cannot deliver traffic to a loopback-bound listener.
+    network_mode: host
     environment:
       TZ: ${TZ:-Asia/Shanghai}
       DEEPSEEK_API_KEY: ${DEEPSEEK_API_KEY:-}
-      # Comma-separated authorities allowed to reach the UI besides loopback,
-      # e.g. "192.168.1.1,dsh.example.com". Without this, LAN/domain access
-      # gets 403 on every /api call (host check runs before auth).
+      # Loopback is accepted implicitly; list every other authority here
+      # (e.g. the reverse-proxy domain), otherwise /api returns 403.
       DSH_TRUSTED_HOSTS: ${DSH_TRUSTED_HOSTS:-}
+      # Bind address inside the container. Default 127.0.0.1 pairs with host
+      # networking; set to the container IP if you switch to bridge mode.
+      DSH_BIND_IP: ${DSH_BIND_IP:-127.0.0.1}
+      DSH_PORT: ${DSH_PORT:-3080}
     volumes:
       # DSH_HOME is /data/dsh inside the image, and nothing else is written
       # under /data, so mount the host ./data straight onto DSH_HOME instead of

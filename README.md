@@ -19,6 +19,12 @@ docker compose logs -f dsh
 
 访问 <http://127.0.0.1:3080>。模型/凭据也可以直接在 Web UI 里配置。
 
+默认使用 `network_mode: host` 并监听 `127.0.0.1:3080`，方便同机的反代（Caddy/nginx）用 `reverse_proxy localhost:3080` 接入。
+
+> 为什么用 host 网络：DSH 拒绝绑定 `0.0.0.0`，只能绑一个具体地址。若用 bridge 模式，Docker 的端口映射是 DNAT 到容器网卡 IP，绑 `127.0.0.1` 的监听收不到任何流量，`docker compose` 的 3080 会连不上。
+>
+> 若你更想用 bridge 模式，把 compose 里的 `network_mode: host` 删掉、恢复 `ports:` 映射，并把 `DSH_BIND_IP` 设为容器网卡 IP（或留空让脚本自动挑第一个非 loopback 地址）。
+
 要自己改镜像重新构建：
 
 ```bash
@@ -62,6 +68,30 @@ DSH_TRUSTED_HOSTS=192.168.1.1,dsh.example.com
 ```bash
 docker compose up -d
 ```
+
+### Caddy 反代示例
+
+```caddyfile
+ai.lan {
+    reverse_proxy localhost:3080 {
+        # 不要写 `header_up -Host` / `header_up Host`：
+        # Caddy 默认保留客户端 Host，正是 DSH 校验所需的值。
+        # 删掉 Host 会让 DSH 返回 400。
+    }
+}
+```
+
+配合的 `.env`：
+
+```dotenv
+DSH_TRUSTED_HOSTS=ai.lan
+```
+
+要点：
+
+- **`reverse_proxy localhost:3080` 能用的前提是 host 网络 + 绑 `127.0.0.1`**（本仓库默认如此）。bridge 模式下请改成容器可达的地址。
+- WebSocket（`/api/remote.mux`）Caddy v2 自动处理 Upgrade，无需额外配置。
+- 内网域名（`*.lan`）无法签发公共证书，Caddy 会用内部 CA，浏览器首次访问会告警；不介意的话也可直接写 `ai.lan:80` 走 HTTP。
 
 客户端和服务端需在同一网段、宿主机防火墙放行 3080。DSH 默认 cookie 不是 `Secure`（明文 HTTP），跨网络暴露时建议加 TLS 反代。
 
