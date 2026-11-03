@@ -3,16 +3,21 @@ name: dsh-docker
 services:
   dsh:
     image: ghcr.io/bitxeno/dsh-docker:latest
+    container_name: dsh-docker
     restart: unless-stopped
     ports:
       - "${DSH_PORT:-3080}:3080"
     environment:
       TZ: ${TZ:-Asia/Shanghai}
       DEEPSEEK_API_KEY: ${DEEPSEEK_API_KEY:-}
+      # Comma-separated authorities allowed to reach the UI besides loopback,
+      # e.g. "192.168.1.1,dsh.example.com". Without this, LAN/domain access
+      # gets 403 on every /api call (host check runs before auth).
+      DSH_TRUSTED_HOSTS: ${DSH_TRUSTED_HOSTS:-}
     volumes:
-      - dsh_data:/data
+      # DSH_HOME is /data/dsh inside the image, and nothing else is written
+      # under /data, so mount the host ./data straight onto DSH_HOME instead of
+      # wrapping it in an extra /data/dsh level.
+      - ./data:/data/dsh
       - ./workspace:/workspace
     working_dir: /workspace
-
-volumes:
-  dsh_data:
