@@ -57,7 +57,7 @@ docker compose exec dsh s6-svc -r /run/service/dsh
 
 ## 发布到 GHCR
 
-[`.github/workflows/publish.yml`](.github/workflows/publish.yml) 构建 `linux/amd64` + `linux/arm64` 并推送到 GitHub Container Registry。
+[`.github/workflows/publish.yml`](.github/workflows/publish.yml) 构建 `linux/amd64` 镜像并推送到 GitHub Container Registry。
 
 推送到 `main`、推送 `v*.*.*` 标签、或手动触发 `workflow_dispatch`（可指定 `dsh_version`）：
 
