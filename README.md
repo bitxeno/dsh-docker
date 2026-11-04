@@ -96,13 +96,17 @@ docker compose exec dsh s6-svc -r /run/service/dsh
 
 [`.github/workflows/publish.yml`](.github/workflows/publish.yml) 构建 `linux/amd64` 镜像并推送到 GitHub Container Registry。
 
-推送到 `main`、推送 `v*.*.*` 标签、或手动触发 `workflow_dispatch`（可指定 `dsh_version`）：
+推送到 `main`、推送 `v*.*.*` 标签、或手动触发 `workflow_dispatch` 都会构建。
+
+镜像地址 `ghcr.io/bitxeno/dsh-docker`，只发布到这里（不推送 Docker Hub）。
+
+**DSH 版本默认跟随 npm 的 `latest` dist-tag**：Dockerfile 的 `ARG DSH_VERSION=latest` 与工作流的 `DEFAULT_DSH_VERSION` 都是 `latest`，因此 `main` 分支构建出的 `:latest` 镜像每次都会安装当前最新发布的 DSH。要给某个版本打固定镜像，手动触发 `workflow_dispatch` 时把 `dsh_version` 填成精确版本号（如 `0.2.1-rc.5`），或本地构建时覆盖构建参数：
 
 ```bash
-git tag v0.2.1-rc.2 && git push origin v0.2.1-rc.2
+docker build --build-arg DSH_VERSION=0.2.1-rc.5 -t ghcr.io/bitxeno/dsh-docker:0.2.1-rc.5 .
 ```
 
-镜像地址 `ghcr.io/bitxeno/dsh-docker`，只发布到这里（不推送 Docker Hub）。DSH 版本由 `DSH_VERSION` 构建参数固定，与 Dockerfile 的 `ARG` 默认值一致。
+推送 `v*.*.*` 标签是镜像本身的版本号，与内部 DSH 版本无关，无需一致。
 
 发布后需要在仓库的 **Packages** 设置里把该 package 可见性改为 public，否则 `docker compose up` 拉取会 401。
 

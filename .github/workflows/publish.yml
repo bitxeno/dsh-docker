@@ -5,8 +5,8 @@ name: Publish Docker Image To GHCR
 #   - Docker actions bumped to current majors (reference still pins v3/v4/v5)
 #   - tag rules that cannot emit an invalid ":latest" from names like "vlatest"
 #   - GHCR image name is lowercased (GHCR rejects uppercase owner/repo)
-#   - DSH_VERSION exposed as a dispatch input, so a tagged release pins exactly
-#     the DSH version baked into the image
+#   - DSH_VERSION defaults to the npm `latest` dist-tag and is exposed as a
+#     dispatch input, so a tagged/manual build can pin an exact DSH version
 #   - registry cache, so repeat builds reuse the s6-overlay / DSH / lib layers
 
 on:
@@ -18,9 +18,9 @@ on:
   workflow_dispatch:
     inputs:
       dsh_version:
-        description: 'DSH version to bake into the image (for example 0.2.1-rc.2)'
+        description: 'DSH version to bake into the image (default: latest npm dist-tag; or an exact version such as 0.2.1-rc.5)'
         required: false
-        default: '0.2.1-rc.2'
+        default: 'latest'
         type: string
       push_latest:
         description: 'Also tag the manual build as :latest'
@@ -39,7 +39,9 @@ permissions:
 
 env:
   REGISTRY: ghcr.io
-  DEFAULT_DSH_VERSION: '0.2.1-rc.2'
+  # Default build arg is the npm `latest` dist-tag; keep this fallback in sync
+  # with the Dockerfile's ARG DSH_VERSION default.
+  DEFAULT_DSH_VERSION: 'latest'
 
 jobs:
   build-and-push:

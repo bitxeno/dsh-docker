@@ -1,7 +1,10 @@
 FROM node:24-bookworm-slim
 
 ARG S6_OVERLAY_VERSION=3.2.3.2
-ARG DSH_VERSION=0.2.1-rc.2
+# Track the npm `latest` dist-tag so the :latest image always installs the
+# newest published DSH. Override this build arg (or the workflow's dsh_version
+# input) to pin an exact release.
+ARG DSH_VERSION=latest
 
 # DSH requires Node.js 24.9+; the node:24 image already satisfies that.
 ENV DEBIAN_FRONTEND=noninteractive \
