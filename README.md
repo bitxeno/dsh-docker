@@ -94,17 +94,17 @@ docker compose exec dsh s6-svc -r /run/service/dsh
 
 ## 工具链
 
-镜像里装了 `gh`（GitHub CLI）和 `mise`，并预设了 Go / dotnet / Rust 的环境变量（参考 `../aiclaw-docker`）：
+镜像里装了 `gh`（GitHub CLI），并预设了 Go / Rust 以及 mise 的环境变量（参考 `../aiclaw-docker`）：
 
 | 变量 / 路径 | 值 |
 |---|---|
 | `GOROOT` | `/root/.local/go` |
 | `GOPATH` | `/root/.local/share/go` |
-| `PATH` 追加 | `/root/.local/bin`、`/root/.local/share/mise/dotnet-root`、`/root/.local/go/bin`、`/root/.local/share/go/bin`、`/root/.cargo/bin` |
+| `PATH` 追加 | `/root/.local/share/mise/shims`、`/root/.local/bin`、`/root/.local/go/bin`、`/root/.local/share/go/bin`、`/root/.cargo/bin` |
 
-Go / dotnet / Rust **运行时本身没有预装**，只是把路径铺好，之后用 `mise install`、官方 Go tarball 或 rustup 装完即可直接用（`~/.bashrc` 里也做了存在性判断后 source `.cargo/env`）。
+Go / Rust **运行时本身没有预装**，只是把路径铺好，之后用官方 Go tarball 或 rustup 装完即可直接用（`~/.bashrc` 里也做了存在性判断后 source `.cargo/env`）。
 
-注意：mise 的 shims **没有**加入全局 `PATH`，也不会自动 `activate`，避免覆盖镜像自带的 node/npm/pnpm。需要按项目切换版本时，自己在 shell 里执行 `eval "$(mise activate bash)"` 即可。构建时可用 `--build-arg MISE_VERSION=2026.11.1` 固定 mise 版本（留空则由安装脚本选取最新满 24h 的发布）。
+**mise 不在镜像里预装**，部署后按需手动安装（例如 `curl https://mise.run | sh`），其二进制目录 `/root/.local/bin` 和 shims 目录 `/root/.local/share/mise/shims` 已经在 `PATH` 里。mise 不会自动 `activate`，避免覆盖镜像自带的 node/npm/pnpm；需要按项目切换版本时，自己在 shell 里执行 `eval "$(mise activate bash)"` 即可。
 
 ## 发布到 GHCR
 
@@ -127,7 +127,7 @@ docker build --build-arg DSH_VERSION=0.2.2-rc.1 -t ghcr.io/bitxeno/dsh-docker:0.
 ## 目录
 
 - `docker-compose.yml` —— 服务、端口、两个挂载
-- `Dockerfile` —— Node 24、s6-overlay、DSH CLI、GitHub CLI (`gh`)、mise（含 Go/dotnet/Rust 环境变量默认值）
+- `Dockerfile` —— Node 24、s6-overlay、DSH CLI、GitHub CLI (`gh`)（mise 需部署后手动安装，Go/Rust 环境变量默认值已铺好）
 - `services.d/dsh/run` —— s6 监督的 DSH Web 服务
 - `.github/workflows/publish.yml` —— 构建并发布到 GHCR
 
