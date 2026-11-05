@@ -92,6 +92,20 @@ docker compose exec dsh s6-svc -r /run/service/dsh
 
 （`dah-im` 的实际包名是 `@xmanrui/dsh-im`。）插件和凭据都在本地 `./data` 里，重建容器不会丢。
 
+## 工具链
+
+镜像里装了 `gh`（GitHub CLI）和 `mise`，并预设了 Go / dotnet / Rust 的环境变量（参考 `../aiclaw-docker`）：
+
+| 变量 / 路径 | 值 |
+|---|---|
+| `GOROOT` | `/root/.local/go` |
+| `GOPATH` | `/root/.local/share/go` |
+| `PATH` 追加 | `/root/.local/bin`、`/root/.local/share/mise/dotnet-root`、`/root/.local/go/bin`、`/root/.local/share/go/bin`、`/root/.cargo/bin` |
+
+Go / dotnet / Rust **运行时本身没有预装**，只是把路径铺好，之后用 `mise install`、官方 Go tarball 或 rustup 装完即可直接用（`~/.bashrc` 里也做了存在性判断后 source `.cargo/env`）。
+
+注意：mise 的 shims **没有**加入全局 `PATH`，也不会自动 `activate`，避免覆盖镜像自带的 node/npm/pnpm。需要按项目切换版本时，自己在 shell 里执行 `eval "$(mise activate bash)"` 即可。构建时可用 `--build-arg MISE_VERSION=2026.11.1` 固定 mise 版本（留空则由安装脚本选取最新满 24h 的发布）。
+
 ## 发布到 GHCR
 
 [`.github/workflows/publish.yml`](.github/workflows/publish.yml) 构建 `linux/amd64` 镜像并推送到 GitHub Container Registry。
@@ -100,10 +114,10 @@ docker compose exec dsh s6-svc -r /run/service/dsh
 
 镜像地址 `ghcr.io/bitxeno/dsh-docker`，只发布到这里（不推送 Docker Hub）。
 
-**DSH 版本默认跟随 npm 的 `latest` dist-tag**：Dockerfile 的 `ARG DSH_VERSION=latest` 与工作流的 `DEFAULT_DSH_VERSION` 都是 `latest`，因此 `main` 分支构建出的 `:latest` 镜像每次都会安装当前最新发布的 DSH。要给某个版本打固定镜像，手动触发 `workflow_dispatch` 时把 `dsh_version` 填成精确版本号（如 `0.2.1-rc.5`），或本地构建时覆盖构建参数：
+**DSH 版本默认跟随 npm 的 `next` dist-tag**：Dockerfile 的 `ARG DSH_VERSION=next` 与工作流的 `DEFAULT_DSH_VERSION` 都是 `next`，因此 `main` 分支构建出的 `:latest` 镜像每次都会安装当前预发布（next）的 DSH。要给某个版本打固定镜像，手动触发 `workflow_dispatch` 时把 `dsh_version` 填成精确版本号（如 `0.2.2-rc.1`），或本地构建时覆盖构建参数；也可以填 `latest` 回退到稳定版 dist-tag：
 
 ```bash
-docker build --build-arg DSH_VERSION=0.2.1-rc.5 -t ghcr.io/bitxeno/dsh-docker:0.2.1-rc.5 .
+docker build --build-arg DSH_VERSION=0.2.2-rc.1 -t ghcr.io/bitxeno/dsh-docker:0.2.2-rc.1 .
 ```
 
 推送 `v*.*.*` 标签是镜像本身的版本号，与内部 DSH 版本无关，无需一致。
@@ -113,7 +127,7 @@ docker build --build-arg DSH_VERSION=0.2.1-rc.5 -t ghcr.io/bitxeno/dsh-docker:0.
 ## 目录
 
 - `docker-compose.yml` —— 服务、端口、两个挂载
-- `Dockerfile` —— Node 24、s6-overlay、DSH CLI
+- `Dockerfile` —— Node 24、s6-overlay、DSH CLI、GitHub CLI (`gh`)、mise（含 Go/dotnet/Rust 环境变量默认值）
 - `services.d/dsh/run` —— s6 监督的 DSH Web 服务
 - `.github/workflows/publish.yml` —— 构建并发布到 GHCR
 
