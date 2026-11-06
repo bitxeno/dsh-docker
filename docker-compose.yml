@@ -10,10 +10,9 @@ services:
     environment:
       TZ: ${TZ:-Asia/Shanghai}
       DEEPSEEK_API_KEY: ${DEEPSEEK_API_KEY:-}
-      # Optional bind address inside the container. Empty auto-detects the
-      # container's first non-loopback IPv4, which is what bridge + ports DNAT
-      # reaches. Set it only to pick a specific container interface; a host LAN
-      # IP that is not an address of this container is ignored with a warning.
+      # Optional concrete bind address for `dsh web`. Empty lets dsh use its
+      # own loopback default; set it to the container interface IP when using
+      # bridge + ports DNAT.
       DSH_BIND_IP: ${DSH_BIND_IP:-}
       # Comma-separated authorities allowed to reach the UI besides loopback,
       # e.g. "192.168.1.1,dsh.example.com". Without this, LAN/domain access
