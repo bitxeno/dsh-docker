@@ -67,7 +67,9 @@ docker compose up -d
 
 ### 监听地址
 
-`run` 默认不传 `--host`，由 dsh 使用自己的默认绑定（`127.0.0.1`），配合 `network_mode: host` 的同机反代最省事。当前 `docker-compose.yml` 是 bridge + `ports` 映射，Docker 把流量 DNAT 到容器网卡，loopback 监听收不到，因此需要在 `.env` 里把 `DSH_BIND_IP` 设为容器网卡的 IPv4 地址（或改用 host 网络）。只有设置了该变量，`run` 才会追加 `--host`。
+`run` 会自动把 dsh 绑到容器的**第一个非 loopback IPv4**（bridge + `ports` 的 DNAT 目标就是它），一般无需配置。若容器有多块网卡、想指定某一块，把 `DSH_BIND_IP` 设为**容器内**某块网卡的地址（如 `172.18.0.2`）；填入的不是本容器地址（例如宿主机 LAN IP `192.168.1.1`）会被忽略并回退自动探测，同时打一条 `DSH_BIND_IP=... is not an address of this container` 警告。
+
+> ⚠️ 注意区分宿主机 IP 与容器 IP：`DSH_BIND_IP` 只接受**容器内网卡**的地址。填宿主机的 LAN IP（如 `192.168.1.1`）会被忽略并回退到自动探测的容器地址，dsh 仍能正常启动，只是那条 `DSH_BIND_IP=... is not an address of this container` 警告容易让人误以为改动没有生效。从宿主机的 LAN IP / 域名访问 3080 时，把该 authority 加进 `DSH_TRUSTED_HOSTS` 即可（与绑哪个地址无关）。
 
 ## 重启语义
 

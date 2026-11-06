@@ -10,13 +10,28 @@ cd /workspace
 # DSH only accepts loopback, its own bind IP, or an explicitly trusted authority.
 # Reaching the UI by the host's LAN IP or a domain therefore needs
 # --trusted-host for each of them, otherwise every /api call returns 403.
-args=(web --no-open --port 3080)
-# Leave --host to dsh's own loopback default unless the deployment pins a
-# concrete address. Bridge + ports DNATs to the container interface, so set
-# DSH_BIND_IP to that address there; host networking can keep the default.
-if [[ -n "${DSH_BIND_IP:-}" ]]; then
-  args+=(--host "$DSH_BIND_IP")
-fi
+# DSH refuses wildcard binds; it needs one concrete local IPv4. Prefer
+# DSH_BIND_IP when it names an address that actually exists on this container;
+# otherwise fall back to the container's first non-loopback IPv4. Binding a
+# real interface (not loopback) is what keeps a bridge + `ports` mapping
+# reachable: Docker DNATs host:3080 to the container interface, where a
+# loopback-only listener would never receive it. A DSH_BIND_IP that is not an
+# address of this container (e.g. the host's LAN IP) is rejected with a warning.
+bind_ip="$(node -e '
+  const os = require("node:os")
+  const want = process.argv[1] || ""
+  const ips = []
+  for (const [name, addrs] of Object.entries(os.networkInterfaces())) {
+    if (name === "lo") continue
+    for (const a of addrs || []) if (!a.internal && a.family === "IPv4") ips.push(a.address)
+  }
+  const chosen = want && ips.includes(want) ? want : ips[0]
+  if (!chosen) process.exit(1)
+  if (want && want !== chosen) console.error(`dsh-docker: DSH_BIND_IP=${want} is not an address of this container; using ${chosen}`)
+  process.stdout.write(chosen)
+' "${DSH_BIND_IP:-}")"
+
+args=(web --no-open --host "$bind_ip" --port 3080)
 if [[ -n "${DSH_TRUSTED_HOSTS:-}" ]]; then
   IFS=',' read -r -a hosts <<< "$DSH_TRUSTED_HOSTS"
   for h in "${hosts[@]}"; do
