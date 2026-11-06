@@ -65,6 +65,10 @@ docker compose up -d
 
 客户端和服务端需在同一网段、宿主机防火墙放行 3080。DSH 默认 cookie 不是 `Secure`（明文 HTTP），跨网络暴露时建议加 TLS 反代。
 
+### 监听地址
+
+`run` 默认不传 `--host`，由 dsh 使用自己的默认绑定（`127.0.0.1`），配合 `network_mode: host` 的同机反代最省事。当前 `docker-compose.yml` 是 bridge + `ports` 映射，Docker 把流量 DNAT 到容器网卡，loopback 监听收不到，因此需要在 `.env` 里把 `DSH_BIND_IP` 设为容器网卡的 IPv4 地址（或改用 host 网络）。只有设置了该变量，`run` 才会追加 `--host`。
+
 ## 重启语义
 
 容器名固定为 `dsh-docker`。操作时用服务名 `dsh` 或容器名都可以：

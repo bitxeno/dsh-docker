@@ -18,8 +18,8 @@ ENV DEBIAN_FRONTEND=noninteractive \
 # Toolchain defaults, mirroring ../aiclaw-docker. The toolchains themselves
 # are not preinstalled; these just make runtimes added later (via mise, the Go
 # tarball, or rustup) work without extra configuration.
-#   - mise: /root/.local/bin (mise binary; shims are intentionally NOT on PATH
-#     so they cannot shadow the image's global node/npm/pnpm)
+#   - mise: /root/.local/bin (mise binary) and /root/.local/share/mise/shims
+#     are both on PATH so a manual install needs no extra configuration
 #   - Go: GOROOT=/root/.local/go, with $GOPATH/bin and $GOROOT/bin on PATH
 #   - Rust: /root/.cargo/bin on PATH, with .cargo/env sourced in .bashrc
 ENV GOROOT=/root/.local/go \
