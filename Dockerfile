@@ -36,6 +36,10 @@ RUN mkdir -p "$GOPATH/bin" /root/.cargo/bin \
 #     `libncurses.so.6` until libncurses6 (and the other shared libs below) exist.
 #   - gh/keyring: the published keyring is already a binary OpenPGP keyring, so
 #     it can be written straight to /usr/share/keyrings without gnupg/dearmor.
+#   - ripgrep: provides `rg` for fast recursive searches over the workspace.
+#   - procps/wget: provide `ps` and `wget`, which the slim base does not ship.
+#   - python3 is intentionally omitted: it is installed via mise later, and an
+#     apt /usr/bin/python3 would take precedence over the mise shim on PATH.
 RUN set -eux; \
     apt-get update; \
     apt-get install -y --no-install-recommends \
@@ -52,8 +56,10 @@ RUN set -eux; \
       libz3-4 \
       mawk \
       openssh-client \
-      python3 \
+      procps \
+      ripgrep \
       tzdata \
+      wget \
       xz-utils; \
     curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg \
       -o /usr/share/keyrings/githubcli-archive-keyring.gpg; \
