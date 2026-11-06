@@ -5,6 +5,9 @@ ARG S6_OVERLAY_VERSION=3.2.3.2
 # Override this build arg (or the workflow's dsh_version input) to pin an exact
 # release or go back to the `latest` stable dist-tag.
 ARG DSH_VERSION=next
+# Empty lets the mise installer pick its newest release (>=24h old); set it
+# (e.g. 2026.11.1) to pin the mise binary for reproducible builds.
+ARG MISE_VERSION=
 
 # DSH requires Node.js 24.9+; the node:24 image already satisfies that.
 ENV DEBIAN_FRONTEND=noninteractive \
@@ -13,12 +16,10 @@ ENV DEBIAN_FRONTEND=noninteractive \
     PATH=/command:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
 
 # Toolchain defaults, mirroring ../aiclaw-docker. The toolchains themselves
-# are not preinstalled; these just lay down the paths so runtimes installed
-# manually after deployment (via mise, the Go tarball, or rustup) work without
-# extra configuration.
-#   - mise: not installed here; install it later and its shims dir
-#     (/root/.local/share/mise/shims) plus binary dir (/root/.local/bin) are
-#     already on PATH
+# are not preinstalled; these just make runtimes added later (via mise, the Go
+# tarball, or rustup) work without extra configuration.
+#   - mise: /root/.local/bin (mise binary; shims are intentionally NOT on PATH
+#     so they cannot shadow the image's global node/npm/pnpm)
 #   - Go: GOROOT=/root/.local/go, with $GOPATH/bin and $GOROOT/bin on PATH
 #   - Rust: /root/.cargo/bin on PATH, with .cargo/env sourced in .bashrc
 ENV GOROOT=/root/.local/go \
