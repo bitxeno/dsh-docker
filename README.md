@@ -110,6 +110,10 @@ docker compose exec dsh s6-svc -r /run/service/dsh
 
 Go / Rust **运行时本身没有预装**，只是把路径铺好，之后用官方 Go tarball 或 rustup 装完即可直接用（`~/.bashrc` 里也做了存在性判断后 source `.cargo/env`）。
 
+镜像也带了 `openssh-client`，`git clone git@host:repo` 这类 SSH 拉取可以直接用；裸 `git` 不带 ssh 二进制，缺了会报 `cannot run ssh`。
+
+Swift **工具链同样没有预装**，但它依赖的运行库已经装好（`libncurses6`、`libcurl4`、`libxml2`、`libsqlite3-0`、`libedit2`、`libz3-4`、`libuuid1`、`tzdata`）。自己下载官方 Debian 12 的 Swift tarball，解压后把 `usr/bin` 加进 `PATH` 就能跑。少了这些库，预编译的 `swift` 会在启动时因找不到 `libncurses.so.6` 而失败。
+
 **mise 不在镜像里预装**，部署后按需手动安装（例如 `curl https://mise.run | sh`），其二进制目录 `/root/.local/bin` 和 shims 目录 `/root/.local/share/mise/shims` 已经在 `PATH` 里。mise 不会自动 `activate`，避免覆盖镜像自带的 node/npm/pnpm；需要按项目切换版本时，自己在 shell 里执行 `eval "$(mise activate bash)"` 即可。
 
 ## 发布到 GHCR
@@ -133,7 +137,7 @@ docker build --build-arg DSH_VERSION=0.2.2-rc.1 -t ghcr.io/bitxeno/dsh-docker:0.
 ## 目录
 
 - `docker-compose.yml` —— 服务、端口、两个挂载
-- `Dockerfile` —— Node 24、s6-overlay、DSH CLI、GitHub CLI (`gh`)（mise 需部署后手动安装，Go/Rust 环境变量默认值已铺好）
+- `Dockerfile` —— Node 24、s6-overlay、DSH CLI、GitHub CLI (`gh`)、`openssh-client` 与 Swift 运行库（mise 与 Swift 工具链需部署后手动安装，Go/Rust 环境变量默认值已铺好）
 - `services.d/dsh/run` —— s6 监督的 DSH Web 服务
 - `.github/workflows/publish.yml` —— 构建并发布到 GHCR
 

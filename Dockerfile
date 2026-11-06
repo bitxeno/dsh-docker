@@ -28,9 +28,14 @@ ENV GOROOT=/root/.local/go \
 RUN mkdir -p "$GOPATH/bin" /root/.cargo/bin \
     && printf 'if [ -f "$HOME/.cargo/env" ]; then . "$HOME/.cargo/env"; fi\n' >> /root/.bashrc
 
-# GitHub CLI (gh) comes from its official apt repo so it stays updatable.
-# The published keyring is already a binary OpenPGP keyring, so it can be
-# written straight to /usr/share/keyrings without gnupg/dearmor.
+# Base tools, runtime libraries for a self-installed toolchain, and GitHub CLI.
+#   - openssh-client: `git clone` over SSH needs the ssh binary, which plain
+#     `git` does not ship; without it git fails with "cannot run ssh".
+#   - Swift runtime libs: the toolchain binaries link these. The slim base only
+#     carries the wide-char libncursesw, so `swift` fails to load
+#     `libncurses.so.6` until libncurses6 (and the other shared libs below) exist.
+#   - gh/keyring: the published keyring is already a binary OpenPGP keyring, so
+#     it can be written straight to /usr/share/keyrings without gnupg/dearmor.
 RUN set -eux; \
     apt-get update; \
     apt-get install -y --no-install-recommends \
@@ -38,8 +43,17 @@ RUN set -eux; \
       ca-certificates \
       curl \
       git \
+      libcurl4 \
+      libedit2 \
+      libncurses6 \
+      libsqlite3-0 \
+      libuuid1 \
+      libxml2 \
+      libz3-4 \
       mawk \
+      openssh-client \
       python3 \
+      tzdata \
       xz-utils; \
     curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg \
       -o /usr/share/keyrings/githubcli-archive-keyring.gpg; \
